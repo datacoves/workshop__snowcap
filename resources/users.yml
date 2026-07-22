@@ -1,0 +1,7 @@
+# users.yml
+
+role_grants:
+  # Human users
+  - to_user: fmercado
+    roles:
+      - analyst
