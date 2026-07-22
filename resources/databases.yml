@@ -5,4 +5,4 @@ vars:
     type: list
     default:
       - name: analytics
-        owner: transformer
+        owner: analyst
