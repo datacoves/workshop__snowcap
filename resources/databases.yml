@@ -1,0 +1,8 @@
+# databases.yml
+
+vars:
+  - name: databases
+    type: list
+    default:
+      - name: analytics
+        owner: transformer
