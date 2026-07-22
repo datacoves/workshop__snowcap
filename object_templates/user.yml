@@ -1,0 +1,8 @@
+# user.yml
+
+users:
+  - for_each: var.users
+    name: "{{ each.value.name }}"
+    owner: analyst
+    type: "{{ each.value.type }}"
+    default_secondary_roles: []
