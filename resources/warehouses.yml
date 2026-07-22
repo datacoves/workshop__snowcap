@@ -1,6 +1,9 @@
 # warehouses.yml
 
-warehouses:
-  - name: wh_transforming
-    warehouse_size: xsmall
-    auto_suspend: 60
+vars:
+  - name: warehouses
+    type: list
+    default:
+      - name: wh_transforming
+        size: x-small
+        auto_suspend: 60 

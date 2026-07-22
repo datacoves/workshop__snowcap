@@ -1,0 +1,22 @@
+# roles__base.yml
+
+roles:
+  - name: z_base__analyst
+  - name: z_schemas__usage__analytics
+  - name: z_tables_views__select__analytics
+
+grants:
+
+  - priv: USAGE
+    on:
+      - all schemas in database analytics
+      - future schemas in database analytics
+    to: z_schemas__usage__analytics
+
+  - priv: SELECT
+    on:
+      - all tables in database analytics
+      - all views in database analytics
+      - future tables in database analytics
+      - future views in database analytics
+    to: z_tables_views__select__analytics

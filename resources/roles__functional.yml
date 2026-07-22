@@ -1,0 +1,18 @@
+# roles__functional.yml
+
+roles:
+  - name: analyst
+
+# Role hierarchy
+role_grants:
+  - to_role: z_base__analyst
+    roles:
+      - z_db__analytics
+      - z_wh__wh_transforming
+      - z_schemas__usage__analytics
+      - z_tables_views__select__analytics
+      - z_stage__raw__dbt_artifacts__artifacts__write
+
+  - to_role: analyst
+    roles:
+      - z_base__analyst
