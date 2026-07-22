@@ -3,6 +3,6 @@
 users:
   - for_each: var.users
     name: "{{ each.value.name }}"
-    owner: analyst
+    owner: SECURITYADMIN
     type: "{{ each.value.type }}"
     default_secondary_roles: []
