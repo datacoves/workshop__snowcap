@@ -1,4 +1,4 @@
-# webinar__snowcap
+# Webinar - Snowcap
 
 > **Hosted by [Datacoves](https://datacoves.com)** - Enterprise DataOps platform with managed dbt Core and Airflow for data transformation and orchestration.
 
