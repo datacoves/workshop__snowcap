@@ -1,8 +1,29 @@
 # users.yml
 
+users:
+  - name: fmercado
+    owner: USERADMIN
+    type: PERSON
+    default_secondary_roles: []
+
+  - name: gomezn
+    owner: USERADMIN
+    type: PERSON
+    default_secondary_roles: []
+
+
 role_grants:
 
   - to_user: fmercado
     roles:
       - ACCOUNTADMIN
-      - analyst
+      - ORGADMIN
+      - ANALYST
+      - REPORTER
+
+  - to_user: gomezn
+    roles:
+      - ACCOUNTADMIN
+      - ORGADMIN
+      - ANALYST
+      - REPORTER
