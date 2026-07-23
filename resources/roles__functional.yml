@@ -11,7 +11,6 @@ role_grants:
       - z_wh__wh_transforming
       - z_schemas__usage__analytics
       - z_tables_views__select__analytics
-      - z_stage__raw__dbt_artifacts__artifacts__write
 
   - to_role: analyst
     roles:

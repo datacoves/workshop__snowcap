@@ -1,8 +1,0 @@
-# user.yml
-
-users:
-  - for_each: var.users
-    name: "{{ each.value.name }}"
-    owner: SECURITYADMIN
-    type: "{{ each.value.type }}"
-    default_secondary_roles: []

@@ -2,10 +2,16 @@
 
 roles:
   - name: z_base__analyst
+
+  - name: z_db__analytics
   - name: z_schemas__usage__analytics
   - name: z_tables_views__select__analytics
 
 grants:
+
+  - priv: USAGE
+    on: database analytics
+    to: z_db__analytics
 
   - priv: USAGE
     on:
