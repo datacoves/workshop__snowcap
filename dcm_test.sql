@@ -1,4 +1,5 @@
--- Warehouse created outside of Snowcap
+-- Warehouse created outside of the DCM project (drift): the next ./deploy.sh
+-- will NOT touch it, because DCM only manages objects it created.
 use role sysadmin;
 show warehouses;
 create warehouse my_warehouse;

@@ -1,0 +1,14 @@
+# manifest.yml
+#
+# Manifest for the Snowcap workshop, reimplemented with Snowflake DCM Projects.
+# https://docs.snowflake.com/en/user-guide/dcm-projects/dcm-projects-overview
+#
+# The manifest is intentionally minimal: the DCM project identifier and the
+# Snowflake connection are supplied on the command line by plan.sh / deploy.sh
+# (driven by the values in your .env file), so there is a single source of
+# truth for the account and no per-environment routing to keep in sync here.
+#
+# All object definitions are auto-discovered from sources/definitions/*.sql.
+
+manifest_version: 2
+type: DCM_PROJECT
