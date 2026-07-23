@@ -1,4 +1,5 @@
--- Warehouse created outside of Snowcap
+-- Warehouse created outside of Terraform (drift): terraform apply
+-- will not touch it, since it is not in the .tf config / state.
 use role sysadmin;
 show warehouses;
 create warehouse my_warehouse;

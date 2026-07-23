@@ -1,0 +1,18 @@
+# Optional: copy to terraform.tfvars to override defaults or set the connection
+# without the plan.sh/apply.sh wrappers. Connection values are normally provided
+# by those wrappers from .env (as TF_VAR_*), so you usually only edit this to
+# change the managed objects.
+
+# organization_name = "MYORG"
+# account_name       = "MYACCOUNT"
+# user               = "svc_terraform"
+# role               = "ACCOUNTADMIN"
+# private_key_path   = "/config/.ssl/dev-private.pem"
+
+# Add another warehouse (each gets a z_wh__<name> role + USAGE/MONITOR grant):
+# warehouses = {
+#   wh_transforming = { size = "XSMALL", auto_suspend = 60 }
+#   wh_reporting    = { size = "XSMALL", auto_suspend = 60 }
+# }
+
+# users = ["fmercado", "gomezn"]
