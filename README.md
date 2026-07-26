@@ -6,6 +6,21 @@ This repository contains the materials and code examples from the Datacove **Sno
 
 > 📚 Full documentation for Snowcap is available at [snowcap.datacoves.com](https://snowcap.datacoves.com).
 
+## Three implementations, one workshop
+
+The **same** database, schemas, warehouse, role hierarchy and grants are built
+three ways, one per branch. Only the tool that declares and applies them
+changes, so you can compare them side by side:
+
+| Branch | Tool | Definitions | State model |
+|---|---|---|---|
+| **`main`** (this one) | [Snowcap](https://snowcap.datacoves.com) | YAML (`resources/*.yml`) | Reads live Snowflake state |
+| **[`snowflake_dcm`](../../tree/snowflake_dcm)** | [Snowflake DCM Projects](https://docs.snowflake.com/en/user-guide/dcm-projects/dcm-projects-overview) | SQL `DEFINE` + `GRANT` (`sources/definitions/*.sql`) | Reads live Snowflake state |
+| **[`terraform`](../../tree/terraform)** | [Terraform](https://developer.hashicorp.com/terraform) + `snowflakedb/snowflake` | HCL (`*.tf`) | State file |
+
+All three read the same `.env` connection variables, so you can switch branches
+and re-run without reconfiguring.
+
 ## Overview
 
 This workshop demonstrates how to manage Snowflake infrastructure as code using **Snowcap**, a Snowflake-native, declarative provisioning
@@ -97,12 +112,66 @@ The workshop walks through several scenarios:
 - **Unsynced Types**: `database` and `schema` are intentionally left out of `--sync_resources`, so Snowcap will create/update them but won't drop a database or schema just because it's removed from YAML
 - **Templates**: The `object_templates/warehouse.yml` template is driven by the `var.warehouses` variable defined in `resources/warehouses.yml`
 
+## Known Issues & Caveats
+
+### ⚠️ `ORGADMIN` is not present in most accounts
+
+`resources/users.yml` grants `ORGADMIN` to both users. That role only exists in
+an **organization's primary account**, so in a normal account (including most
+trial and workshop accounts) `./plan.sh` fails before it can plan anything:
+
+```
+Error fetching reference urn::<account>:role/ORGADMIN: Role "ORGADMIN" not found.
+  Referenced by: role grant to user "FMERCADO"
+```
+
+Remove `ORGADMIN` from both `role_grants` entries in `resources/users.yml`
+unless you are deploying to the primary account. The same caveat applies to the
+`snowflake_dcm` branch, where those grants are commented out by default.
+
+### ⚠️ Key-pair auth is per-account
+
+A private key that authenticates against one Snowflake account is **not**
+automatically valid against another — the public key has to be registered on
+each. Pointing `.env` at a new account without doing so gives a misleading
+error that looks like a bad key rather than a missing registration:
+
+```
+250001 (08001): Failed to connect to DB: <account>.snowflakecomputing.com:443.
+JWT token is invalid.
+```
+
+Register it with `ALTER USER <you> SET RSA_PUBLIC_KEY='<base64>'`, then confirm
+the fingerprint matches `DESC USER <you>`:
+
+```bash
+openssl rsa -in <key>.pem -pubout -outform DER \
+  | openssl dgst -sha256 -binary | openssl enc -base64
+```
+
+### Tool-specific caveats
+
+Worth knowing before you pick one for real work:
+
+| | Caveat |
+|---|---|
+| **Snowcap** (`main`) | Drop-on-remove is opt-in per type via `--sync_resources`; `database` and `schema` are deliberately excluded here so they are never dropped |
+| **DCM** (`snowflake_dcm`) | Reconciles **all** managed types including databases and schemas — removing a definition drops the object, so always `plan` first |
+| **DCM** (`snowflake_dcm`) | Cannot manage `USER` objects at all; users must already exist and only their role grants are declarative |
+| **DCM** (`snowflake_dcm`) | Runs the whole deployment as a **single role** — `USE ROLE` is rejected, so the deploying role needs the union of all privileges. Transferring ownership away from it breaks every subsequent run |
+| **DCM** (`snowflake_dcm`) | Renders `.sql` files as Jinja templates *before* parsing, including inside `--` comments |
+| **Terraform** (`terraform`) | Keeps a **state file**; unlike the other two it diffs against that rather than live Snowflake, so out-of-band changes cause drift |
+
+The `snowflake_dcm` branch README documents its caveats in detail, including the
+ownership-transfer failure and its recovery path.
+
 ## Workshop Takeaways
 
 - Snowflake infrastructure and access control can be declared and version-controlled the same way application code is
 - Object templates + variables keep role/grant boilerplate DRY as new resources are added
 - A layered role hierarchy (fine-grained `z_*` roles → functional roles) scales access control cleanly as teams grow
 - `snowcap plan` makes infrastructure changes reviewable before they touch a live account
+- Declarative tools differ in more than syntax: what they will drop, which object types they manage, and how many roles they can act as all shape how you use them — compare the `snowflake_dcm` and `terraform` branches to see the same design under three sets of constraints
 
 ---
 
