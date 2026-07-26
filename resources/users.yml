@@ -1,11 +1,6 @@
 # users.yml
 
 users:
-  - name: fmercado
-    owner: USERADMIN
-    type: PERSON
-    default_secondary_roles: []
-
   - name: gomezn
     owner: USERADMIN
     type: PERSON
