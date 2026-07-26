@@ -7,7 +7,7 @@
 # account_name       = "MYACCOUNT"
 # user               = "svc_terraform"
 # role               = "ACCOUNTADMIN"
-# private_key_path   = "/config/.ssl/dev-private.pem"
+# private_key_path   = "/path/to/your/private-key.pem"
 
 # Add another warehouse (each gets a z_wh__<name> role + USAGE/MONITOR grant):
 # warehouses = {
@@ -15,4 +15,5 @@
 #   wh_reporting    = { size = "XSMALL", auto_suspend = 60 }
 # }
 
-# users = ["fmercado", "gomezn"]
+# Add another user (each gets analyst + reporter + ACCOUNTADMIN):
+# users = ["gomezn", "someone_else"]
