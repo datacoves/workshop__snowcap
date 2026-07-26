@@ -21,6 +21,80 @@ changes, so you can compare them side by side:
 All three read the same `.env` connection variables, so you can switch branches
 and re-run without reconfiguring.
 
+> 👉 **[Do the three branches produce the same result?](#do-the-three-branches-produce-the-same-result)**
+> — a side-by-side of what each tool actually does, and where they diverge.
+
+### The same warehouse, three ways
+
+The clearest way to compare them is one object expressed in each syntax. Here is
+the `wh_transforming` warehouse plus its matching `z_wh__<name>` access-control
+role and grants — the same result in all three branches.
+
+**Snowcap** — a `for_each` object template over a `vars` list
+(`resources/object_templates/warehouse.yml`):
+
+```yaml
+warehouses:
+  - for_each: var.warehouses
+    name: "{{ each.value.name }}"
+    warehouse_size: "{{ each.value.size }}"
+    auto_suspend: "{{ each.value.auto_suspend }}"
+
+roles:
+  - for_each: var.warehouses
+    name: "z_wh__{{ each.value.name }}"
+
+grants:
+  - for_each: var.warehouses
+    priv: [USAGE, MONITOR]
+    on: "warehouse {{ each.value.name }}"
+    to: "z_wh__{{ each.value.name }}"
+```
+
+**Snowflake DCM** — declarative SQL. No loop here; the warehouse is written out
+inline (`sources/definitions/warehouses.sql`):
+
+```sql
+DEFINE WAREHOUSE wh_transforming
+    WAREHOUSE_SIZE = 'XSMALL'
+    AUTO_SUSPEND = 60;
+
+DEFINE ROLE z_wh__wh_transforming;
+
+GRANT USAGE, MONITOR ON WAREHOUSE wh_transforming TO ROLE z_wh__wh_transforming;
+```
+
+**Terraform** — HCL with `for_each` over a variable (`warehouses.tf`):
+
+```hcl
+resource "snowflake_warehouse" "this" {
+  for_each       = var.warehouses
+  name           = each.key
+  warehouse_size = each.value.size
+  auto_suspend   = each.value.auto_suspend
+}
+
+resource "snowflake_account_role" "z_wh" {
+  for_each = var.warehouses
+  name     = "z_wh__${each.key}"
+}
+
+resource "snowflake_grant_privileges_to_account_role" "z_wh_usage_monitor" {
+  for_each          = var.warehouses
+  account_role_name = snowflake_account_role.z_wh[each.key].name
+  privileges        = ["USAGE", "MONITOR"]
+  on_account_object {
+    object_type = "WAREHOUSE"
+    object_name = snowflake_warehouse.this[each.key].name
+  }
+}
+```
+
+Snowcap and Terraform both keep the warehouse list in a variable, so adding one
+is a single new entry. DCM supports Jinja loops too, but this workshop keeps it
+inline for readability — note that DCM templates `.sql` files *before* parsing
+them, so a Jinja tag written inside a `--` comment will fail the build.
+
 ## Overview
 
 This workshop demonstrates how to manage Snowflake infrastructure as code using **Snowcap**, a Snowflake-native, declarative provisioning
@@ -149,21 +223,76 @@ openssl rsa -in <key>.pem -pubout -outform DER \
   | openssl dgst -sha256 -binary | openssl enc -base64
 ```
 
-### Tool-specific caveats
+## Do the three branches produce the same result?
 
-Worth knowing before you pick one for real work:
+**Almost.** All three declare the same objects, and each one plans and runs
+cleanly. What differs is not the object list but *how each tool decides what
+already exists and who owns it*. Those differences are structural — they cannot
+be configured away.
 
-| | Caveat |
-|---|---|
-| **Snowcap** (`main`) | Drop-on-remove is opt-in per type via `--sync_resources`; `database` and `schema` are deliberately excluded here so they are never dropped |
-| **DCM** (`snowflake_dcm`) | Reconciles **all** managed types including databases and schemas — removing a definition drops the object, so always `plan` first |
-| **DCM** (`snowflake_dcm`) | Cannot manage `USER` objects at all; users must already exist and only their role grants are declarative |
-| **DCM** (`snowflake_dcm`) | Runs the whole deployment as a **single role** — `USE ROLE` is rejected, so the deploying role needs the union of all privileges. Transferring ownership away from it breaks every subsequent run |
-| **DCM** (`snowflake_dcm`) | Renders `.sql` files as Jinja templates *before* parsing, including inside `--` comments |
-| **Terraform** (`terraform`) | Keeps a **state file**; unlike the other two it diffs against that rather than live Snowflake, so out-of-band changes cause drift |
+### What all three produce
 
-The `snowflake_dcm` branch README documents its caveats in detail, including the
-ownership-transfer failure and its recovery path.
+Identical in every branch: the `analytics` database, its `staging` and `marts`
+schemas, the `wh_transforming` warehouse, all eight roles (`analyst`, `reporter`
+and the six `z_*` roles), the full role hierarchy and privilege grants, and
+`gomezn` granted `ACCOUNTADMIN` + `ANALYST` + `REPORTER`.
+
+### Where they genuinely differ
+
+| | Snowcap (`main`) | DCM (`snowflake_dcm`) | Terraform (`terraform`) |
+|---|---|---|---|
+| **Detects existing objects** | Reads live Snowflake | Reads live Snowflake | ❌ **State file only** |
+| **Manages `USER` objects** | ✅ creates them | ❌ **not supported** | ✅ creates them |
+| **Object ownership** | Assigns defaults (`SYSADMIN` / `USERADMIN`) | Whoever deployed | Whoever applied |
+| **Drop-on-remove** | Opt-in via `--sync_resources`; DB/schema excluded | **All** managed types, incl. DB/schema | Anything removed from `.tf` is destroyed |
+| **Role switching mid-run** | Single role | Single role; `USE ROLE` rejected | Single role (aliases possible, unused here) |
+| **Can enable `ORGADMIN`** | ❌ | ❌ | ⚠️ only via `snowflake_account`, which manages *accounts* |
+
+### The two that will surprise you
+
+**1. Ownership churn if you run more than one tool against the same account.**
+None of the three declare owners explicitly, but Snowcap applies *implicit
+defaults* and will take ownership of objects another tool created. After
+deploying the DCM branch (which leaves everything owned by the deploying role,
+`SECURITYADMIN`), Snowcap plans **14 ownership transfers**:
+
+```
+» Plan: 3 to create, 1 to update, 14 to transfer, 0 to drop.
+~ TRANSFER: ANALYTICS      owner: SECURITYADMIN → SYSADMIN
+~ TRANSFER: WH_TRANSFORMING owner: SECURITYADMIN → SYSADMIN
+...
+```
+
+Pick one tool per account, or the two will fight over ownership on every run.
+
+**2. Terraform is blind to objects it did not create.** Its state file starts
+empty, so against an account where the other branches have already deployed, it
+plans to create everything again:
+
+```
+Plan: 34 to add, 0 to change, 0 to destroy.
+```
+
+Snowcap and DCM read live state and correctly report near-zero drift against the
+same account. This is not a bug — it is the state-file model — but it means
+Terraform needs either a **clean account** or `terraform import` to adopt
+existing objects. Applying it over objects that already exist has not been
+tested here and is not recommended.
+
+### Smaller notes
+
+- **`ANALYTICS.PUBLIC`** is auto-created with any database. Snowcap transfers its
+  ownership, DCM created it, Terraform ignores it.
+- **DCM requires `gomezn` to already exist.** It manages the role grants but
+  cannot create the user, so a fresh account needs a one-off `CREATE USER` first.
+- **DCM renders `.sql` files as Jinja templates before parsing**, including
+  inside `--` comments — a Jinja tag in a comment fails the build.
+- **DCM's deploying role needs the union of all privileges**, since `USE ROLE` is
+  rejected in definition files. Transferring ownership away from that role breaks
+  every subsequent run.
+
+The `snowflake_dcm` and `terraform` branch READMEs document their own caveats in
+more detail.
 
 ## Workshop Takeaways
 

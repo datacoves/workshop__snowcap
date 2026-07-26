@@ -217,3 +217,10 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 .env
+
+# Terraform (the `terraform` branch; artifacts persist across checkouts)
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+terraform.tfvars
