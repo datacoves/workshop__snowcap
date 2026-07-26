@@ -61,8 +61,9 @@ matter.
 cp .env.sample .env
 # Fill in SNOWFLAKE_ACCOUNT, SNOWFLAKE_USER, SNOWFLAKE_ROLE, SNOWFLAKE_PRIVATE_KEY_PATH
 ```
-The scripts read `.env` and pass a **temporary connection** to `snow` (via `-x`
-and `--account/--user/...` flags), so you do **not** need a `connections.toml`.
+The scripts read `.env` and pass a **temporary connection** to `snow` (via
+`--temporary-connection` plus `--account/--user/--role/...`), so you do **not**
+need a `connections.toml`.
 
 ### 2. Bootstrap the project (once)
 A DCM Project is itself a Snowflake object that lives in a schema, so this
@@ -212,25 +213,28 @@ Describe Jinja constructs in prose, or escape them with `{% raw %}`.
 <a name="difference-from-snowcap-users"></a>
 ### Users
 DCM Projects [do not manage `USER` objects](https://docs.snowflake.com/en/user-guide/dcm-projects/dcm-projects-supported-entities).
-The Snowcap `users.yml` both **created** `fmercado`/`gomezn` and granted their
-roles; here the users are assumed to already exist (provisioned by SCIM/your IdP
-or a one-off `CREATE USER`), and `users.sql` manages only the **role grants**
-declaratively.
+The Snowcap `users.yml` both **creates** `gomezn` and grants its roles; here the
+user is assumed to already exist (provisioned by SCIM/your IdP or a one-off
+`CREATE USER`), and `users.sql` manages only the **role grants** declaratively.
+This is the one part of the workshop that does not translate 1:1.
 
-Because of this, `users.sql` grants roles to `gomezn` only. The Snowcap version
-also manages `fmercado`, but DCM cannot create that user — add the grants back
-once the user exists in your account. Referencing a user that does not exist
-fails at compile time:
+Referencing a user that does not exist fails at compile time, before anything is
+planned:
 
 ```
-Unresolved or ambiguous dependency: Dependency User FMERCADO
+Unresolved or ambiguous dependency: Dependency User SOMEUSER
 does not exist or not authorized
 ```
 
-`users.sql` also omits the `ACCOUNTADMIN`/`ORGADMIN` grants by default — they're
-included as comments you can enable if your deploying role is allowed to grant
-them. Note that `ORGADMIN` does not exist in most accounts (only in an
-organization's primary account), so leaving it enabled will fail.
+So on a fresh account, create the user first:
+
+```sql
+CREATE USER IF NOT EXISTS gomezn TYPE = PERSON;
+```
+
+`users.sql` grants `analyst`, `reporter` and `accountadmin`, matching
+`resources/users.yml` on `main`. `ORGADMIN` is deliberately absent from all three
+branches — see [Don't add ORGADMIN](#dont-add-orgadmin) below.
 
 <a name="how-this-compares-to-the-other-branches"></a>
 ## How this compares to the other branches
@@ -277,6 +281,29 @@ ownership transfers** to move everything to `SYSADMIN`/`USERADMIN`:
 Pick one tool per account. Two of them will fight over ownership on every run,
 and as noted above, handing DCM's objects to another role breaks DCM's own next
 run.
+
+<a name="dont-add-orgadmin"></a>
+### Don't add `ORGADMIN`
+
+None of the three branches grant `ORGADMIN`, and it's worth knowing why. The role
+exists only in an organization's **primary account**; anywhere else it simply
+isn't there, so referencing it fails at compile time exactly like a missing user.
+
+Enabling it is an organization-level operation that must be run by hand from an
+account that already holds the role:
+
+```sql
+USE ROLE ORGADMIN;
+ALTER ACCOUNT my_account SET IS_ORG_ADMIN = TRUE;
+```
+
+**DCM cannot do this at all.** `ACCOUNT` is not among its
+[supported entities](https://docs.snowflake.com/en/user-guide/dcm-projects/dcm-projects-supported-entities),
+and the docs say so directly: *"Assigning the policy to an account, user, or
+integration must be done outside of DCM Projects, using `ALTER ACCOUNT`,
+`ALTER USER`, or `ALTER SECURITY INTEGRATION`."* Snowcap has no equivalent
+resource either. Terraform is the only one that could, via `snowflake_account`,
+which manages accounts rather than grants.
 
 ## Workshop Takeaways
 
