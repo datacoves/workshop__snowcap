@@ -250,7 +250,10 @@ verified by running all three against the same account.
 | **Object ownership** | Assigns defaults (`SYSADMIN` / `USERADMIN`) | Whoever deployed | Whoever applied |
 | **Drop-on-remove** | Opt-in via `--sync_resources`; DB/schema excluded | **All** managed types, incl. DB/schema | Anything removed from `.tf` |
 | **Role switching mid-run** | Single role | Single role; `USE ROLE` rejected | Single role (aliases possible, unused) |
-| **Can enable `ORGADMIN`** | ❌ | ❌ | ⚠️ only via `snowflake_account` |
+
+`ORGADMIN` is not in this table because all three behave identically: none grant
+it, so none of them differ in what they produce. It is a separate topic — see
+[Don't add `ORGADMIN`](#dont-add-orgadmin).
 
 ### What this branch does best
 
