@@ -203,6 +203,7 @@ The workshop walks through several scenarios:
 
 ## Known Issues & Caveats
 
+<a name="orgadmin"></a>
 ### ⚠️ Don't add `ORGADMIN` unless you're on the primary account
 
 This workshop deliberately does **not** grant `ORGADMIN`, and neither do the
@@ -282,7 +283,10 @@ and the six `z_*` roles), the full role hierarchy and privilege grants, and
 | **Object ownership** | Assigns defaults (`SYSADMIN` / `USERADMIN`) | Whoever deployed | Whoever applied |
 | **Drop-on-remove** | Opt-in via `--sync_resources`; DB/schema excluded | **All** managed types, incl. DB/schema | Anything removed from `.tf` is destroyed |
 | **Role switching mid-run** | Single role | Single role; `USE ROLE` rejected | Single role (aliases possible, unused here) |
-| **Can enable `ORGADMIN`** | ❌ | ❌ | ⚠️ only via `snowflake_account`, which manages *accounts* |
+
+`ORGADMIN` is not in this table because all three behave identically: none grant
+it, so none of them differ in what they produce. It is a separate topic — see
+[Don't add `ORGADMIN`](#orgadmin).
 
 ### The two that will surprise you
 
