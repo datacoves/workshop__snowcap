@@ -49,6 +49,13 @@ DCM_DB="${DCM_PROJECT%%.*}"
 _rest="${DCM_PROJECT#*.}"
 DCM_SCHEMA="${_rest%%.*}"
 
+# Role used only by setup.sh to create the DCM project's home database.
+# SNOWFLAKE_ROLE in .env is SECURITYADMIN because that .env is shared with the
+# snowcap and terraform variants of this workshop, and SECURITYADMIN lacks
+# CREATE DATABASE. Rather than change the shared value, we switch roles for
+# just the bootstrap statements. Override in .env if ACCOUNTADMIN is not held.
+DCM_SETUP_ROLE="${DCM_SETUP_ROLE:-ACCOUNTADMIN}"
+
 # Connection flags shared by every snow invocation. We use a temporary
 # connection (-x) built entirely from the .env values, so no connections.toml
 # is required.

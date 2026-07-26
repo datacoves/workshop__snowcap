@@ -18,9 +18,19 @@ echo "Using SNOWFLAKE_ACCOUNT=$SNOWFLAKE_ACCOUNT"
 echo "Creating home for DCM project: $DCM_PROJECT"
 echo "=========="
 
-# 1. Home database + schema for the DCM project object
+# 1. Home database + schema for the DCM project object, plus the grants that
+#    let SNOWFLAKE_ROLE (SECURITYADMIN) own the project from here on. Only this
+#    bootstrap needs the elevated role; plan.sh and deploy.sh run as the role
+#    from .env.
 "${SNOW[@]}" sql "${SNOW_CONN[@]}" -q \
-    "CREATE DATABASE IF NOT EXISTS ${DCM_DB}; CREATE SCHEMA IF NOT EXISTS ${DCM_DB}.${DCM_SCHEMA};"
+    "USE ROLE ${DCM_SETUP_ROLE};
+     CREATE DATABASE IF NOT EXISTS ${DCM_DB};
+     CREATE SCHEMA IF NOT EXISTS ${DCM_DB}.${DCM_SCHEMA};
+     GRANT USAGE ON DATABASE ${DCM_DB} TO ROLE ${SNOWFLAKE_ROLE};
+     GRANT USAGE ON SCHEMA ${DCM_DB}.${DCM_SCHEMA} TO ROLE ${SNOWFLAKE_ROLE};
+     GRANT CREATE DCM PROJECT ON SCHEMA ${DCM_DB}.${DCM_SCHEMA} TO ROLE ${SNOWFLAKE_ROLE};
+     GRANT CREATE DATABASE ON ACCOUNT TO ROLE ${SNOWFLAKE_ROLE};
+     GRANT CREATE WAREHOUSE ON ACCOUNT TO ROLE ${SNOWFLAKE_ROLE};"
 
 # 2. The DCM project object itself (no-op if it already exists)
 "${SNOW[@]}" dcm create "$DCM_PROJECT" \
