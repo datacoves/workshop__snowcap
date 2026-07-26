@@ -10,19 +10,9 @@
 -- and DCM manages the role grants declaratively. This is the one part of the
 -- Snowcap setup that does not translate 1:1 to DCM.
 
-GRANT ROLE analyst  TO USER gomezn;
-GRANT ROLE reporter TO USER gomezn;
+GRANT ROLE analyst       TO USER gomezn;
+GRANT ROLE reporter      TO USER gomezn;
+GRANT ROLE accountadmin  TO USER gomezn;
 
--- fmercado is omitted here even though the Snowcap version manages it: DCM
--- cannot create USER objects, and that user does not exist in this account.
--- Add the grants back once the user is provisioned by your SCIM/IdP.
-
--- The Snowcap version also granted ACCOUNTADMIN and ORGADMIN to these users.
--- Uncomment to match it exactly -- note the deploying role must itself hold
--- (and be allowed to grant) these roles; ORGADMIN in particular can only be
--- granted by ORGADMIN.
---
--- GRANT ROLE accountadmin TO USER fmercado;
--- GRANT ROLE orgadmin     TO USER fmercado;
--- GRANT ROLE accountadmin TO USER gomezn;
--- GRANT ROLE orgadmin     TO USER gomezn;
+-- ORGADMIN is deliberately absent: it exists only in an organization's primary
+-- account, and no declarative tool in this workshop can enable it (see README).
