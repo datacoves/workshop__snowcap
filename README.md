@@ -110,7 +110,7 @@ Contains the YAML resource definitions that make up the Snowcap configuration:
 - **`schemas.yml`** - Declares the `analytics.staging` and `analytics.marts` schemas plus the fine-grained `z_schemas__usage__*`
 and `z_tables_views__select__analytics` roles/grants for accessing them
 - **`roles__functional.yml`** - Functional roles (`analyst`, `reporter`) and the role hierarchy that composes the fine-grained `z_*` roles into each one
-- **`users.yml`** - Declares users `fmercado` and `gomezn` and grants them `ACCOUNTADMIN`, `ORGADMIN`, `ANALYST`, and `REPORTER`
+- **`users.yml`** - Declares user `gomezn` and grants it `ACCOUNTADMIN`, `ANALYST`, and `REPORTER`
 
 ### 📁 `/resources/object_templates`
 Reusable Snowcap templates that use `for_each` over variables to generate resources, roles, and grants consistently:
@@ -188,20 +188,41 @@ The workshop walks through several scenarios:
 
 ## Known Issues & Caveats
 
-### ⚠️ `ORGADMIN` is not present in most accounts
+### ⚠️ Don't add `ORGADMIN` unless you're on the primary account
 
-`resources/users.yml` grants `ORGADMIN` to both users. That role only exists in
-an **organization's primary account**, so in a normal account (including most
-trial and workshop accounts) `./plan.sh` fails before it can plan anything:
+This workshop deliberately does **not** grant `ORGADMIN`, and neither do the
+other two branches. It's worth knowing why, because adding it is a natural thing
+to try and the failure is confusing.
+
+`ORGADMIN` exists only in an **organization's primary account**. In any other
+account — including most trial and workshop accounts — the role simply isn't
+there, so `./plan.sh` fails before it can plan anything:
 
 ```
 Error fetching reference urn::<account>:role/ORGADMIN: Role "ORGADMIN" not found.
-  Referenced by: role grant to user "FMERCADO"
+  Referenced by: role grant to user "GOMEZN"
 ```
 
-Remove `ORGADMIN` from both `role_grants` entries in `resources/users.yml`
-unless you are deploying to the primary account. The same caveat applies to the
-`snowflake_dcm` branch, where those grants are commented out by default.
+Nothing in that message hints that `ORGADMIN` is special rather than misspelled.
+Enabling it is an organization-level operation that has to be run manually, from
+an account where the role already exists:
+
+```sql
+USE ROLE ORGADMIN;
+ALTER ACCOUNT my_account SET IS_ORG_ADMIN = TRUE;
+```
+
+**No tool in this workshop can do that for you.** Snowcap has no resource for the
+`IS_ORG_ADMIN` account property; DCM lists neither `ACCOUNT` nor `USER` among its
+[supported entities](https://docs.snowflake.com/en/user-guide/dcm-projects/dcm-projects-supported-entities)
+and its docs explicitly direct you to run `ALTER ACCOUNT` outside DCM. Terraform
+is the only one that could, via
+[`snowflake_account`](https://registry.terraform.io/providers/snowflakedb/snowflake/latest/docs/resources/account)
+— but that resource manages *accounts*, not grants, and needs a provider session
+already connected as `ORGADMIN`.
+
+Note also that `ORGADMIN` can be enabled in at most **eight accounts** per
+organization by default.
 
 ### ⚠️ Key-pair auth is per-account
 
