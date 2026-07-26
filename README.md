@@ -141,7 +141,10 @@ verified by running all three against the same account.
 | **Object ownership** | Assigns defaults (`SYSADMIN` / `USERADMIN`) | Whoever deployed | Whoever applied |
 | **Drop-on-remove** | Opt-in via `--sync_resources`; DB/schema excluded | **All** managed types, incl. DB/schema | Anything removed from `.tf` |
 | **Role switching mid-run** | Single role | Single role; `USE ROLE` rejected | Single role (provider aliases possible, unused here) |
-| **Can enable `ORGADMIN`** | ❌ | ❌ | ⚠️ **only tool that could** — see below |
+
+`ORGADMIN` is not in this table because all three behave identically: none grant
+it, so none of them differ in what they produce. It is a separate topic — see
+[ORGADMIN](#orgadmin) below.
 
 ### ⚠️ The state file makes this branch blind to objects it did not create
 
@@ -162,6 +165,7 @@ not recommended: at best the provider errors on each conflict.
 The flip side is real too: because Terraform tracks state, it knows exactly what
 it created and can cleanly destroy it. The other two infer from live state.
 
+<a name="orgadmin"></a>
 ### ORGADMIN: the one thing this branch could do that the others cannot
 
 `ORGADMIN` is enabled only in an organization's *primary* account, and none of
