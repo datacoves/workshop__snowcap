@@ -9,8 +9,11 @@ provider instead of Snowcap. The **same** database, schemas, warehouse, role
 hierarchy, users and grants are defined; only the tool that declares and applies
 them changes.
 
-> 📚 The `main` branch contains the original Snowcap implementation. Compare the
-> two to see how the same infrastructure-as-code is expressed in each tool.
+> 📚 This workshop exists in **three** implementations, one per branch:
+> [`main`](../../tree/main) (Snowcap), [`snowflake_dcm`](../../tree/snowflake_dcm)
+> (Snowflake DCM Projects), and **`terraform`** (this one). All three declare the
+> same objects and read the same `.env`, so you can switch branches and re-run.
+> See [How this compares to the other branches](#how-this-compares-to-the-other-branches).
 
 ## Overview
 
@@ -36,7 +39,7 @@ are co-located with the objects they protect, mirroring the Snowcap layout.
 - **`schemas.tf`** — the `staging`/`marts` schemas plus the `z_schemas__usage__*` and `z_tables_views__select__analytics` roles/grants, including `ALL` + `FUTURE` grants (mirrors `schemas.yml`)
 - **`warehouses.tf`** — a `for_each` over `var.warehouses` that creates each warehouse, its `z_wh__<name>` role and USAGE/MONITOR grant (mirrors the `object_templates/warehouse.yml` template)
 - **`roles.tf`** — the functional roles (`analyst`, `reporter`) and the role hierarchy (mirrors `roles__functional.yml`)
-- **`users.tf`** — creates users `fmercado`/`gomezn` and grants them the functional roles (mirrors `users.yml`)
+- **`users.tf`** — creates user `gomezn` and grants it `analyst`/`reporter`/`ACCOUNTADMIN` (mirrors `users.yml`)
 
 ### Root Files
 - **`plan.sh`** — loads `.env`, maps it to `TF_VAR_*`, runs `terraform init` + `terraform plan` (equivalent to `snowcap plan`)
@@ -121,9 +124,72 @@ the `analyst` and `reporter` roles can query the schemas they were granted.
   `snowflake_grant_account_role` resource is one grant, so the single Snowcap
   grant blocks that spanned `all`/`future` tables and views expand into a few
   explicit resources here.
-- **Users** are created with `snowflake_user` (PERSON type). The `ACCOUNTADMIN`
-  /`ORGADMIN` grants from `users.yml` are included as commented resources in
-  `users.tf` — enable them if your applying role is allowed to grant them.
+- **Users** are created with `snowflake_user` (PERSON type), and `ACCOUNTADMIN`
+  is granted to match `users.yml`. `ORGADMIN` is deliberately absent — see below.
+
+<a name="how-this-compares-to-the-other-branches"></a>
+## How this compares to the other branches
+
+All three branches declare the same objects and all three plan cleanly. What
+differs is how each tool decides **what already exists** and **who owns it** —
+verified by running all three against the same account.
+
+| | Snowcap ([`main`](../../tree/main)) | DCM ([`snowflake_dcm`](../../tree/snowflake_dcm)) | Terraform (this branch) |
+|---|---|---|---|
+| **Detects existing objects** | Reads live Snowflake | Reads live Snowflake | ❌ **State file only** |
+| **Manages `USER` objects** | ✅ creates them | ❌ not supported | ✅ creates them |
+| **Object ownership** | Assigns defaults (`SYSADMIN` / `USERADMIN`) | Whoever deployed | Whoever applied |
+| **Drop-on-remove** | Opt-in via `--sync_resources`; DB/schema excluded | **All** managed types, incl. DB/schema | Anything removed from `.tf` |
+| **Role switching mid-run** | Single role | Single role; `USE ROLE` rejected | Single role (provider aliases possible, unused here) |
+| **Can enable `ORGADMIN`** | ❌ | ❌ | ⚠️ **only tool that could** — see below |
+
+### ⚠️ The state file makes this branch blind to objects it did not create
+
+This is the difference that will actually bite you. Snowcap and DCM both read
+live Snowflake state, so against an account where objects already exist they
+report near-zero drift. Terraform starts with an **empty state file**, so it
+plans to create all of them again:
+
+```
+Plan: 34 to add, 0 to change, 0 to destroy.
+```
+
+That is not a bug — it is the state-file model — but it means this branch needs
+either a **clean account**, or `terraform import` to adopt existing objects.
+Applying it over objects that already exist has **not been tested** here and is
+not recommended: at best the provider errors on each conflict.
+
+The flip side is real too: because Terraform tracks state, it knows exactly what
+it created and can cleanly destroy it. The other two infer from live state.
+
+### ORGADMIN: the one thing this branch could do that the others cannot
+
+`ORGADMIN` is enabled only in an organization's *primary* account, and none of
+the three tools grant it here. But Terraform is the only one that could **enable**
+it, via [`snowflake_account`](https://registry.terraform.io/providers/snowflakedb/snowflake/latest/docs/resources/account):
+
+```hcl
+resource "snowflake_account" "target" {
+  name         = "MY_ACCOUNT"
+  is_org_admin = true   # requires a provider connected as ORGADMIN
+}
+```
+
+That resource manages **accounts**, not grants, and requires an ORGADMIN session
+on an account that already holds the role. Snowcap has no equivalent, and DCM
+lists neither `ACCOUNT` nor `USER` among its
+[supported entities](https://docs.snowflake.com/en/user-guide/dcm-projects/dcm-projects-supported-entities)
+— its docs direct you to run `ALTER ACCOUNT` outside DCM entirely.
+
+This branch does not use it: enabling ORGADMIN is an organization-level operation
+that a workshop should not perform.
+
+### Ownership: pick one tool per account
+
+Terraform leaves objects owned by whoever applied them, as DCM does. Snowcap
+assigns implicit default owners and will take ownership of objects another tool
+created — after the DCM branch deploys, Snowcap plans **14 ownership transfers**.
+Run two of these tools against one account and they will fight on every plan.
 
 ## Workshop Takeaways
 
