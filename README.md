@@ -147,9 +147,24 @@ Reusable Snowcap templates that use `for_each` over variables to generate resour
 ## Getting Started
 
 ### Prerequisites
-- A Snowflake account with permissions to create databases, schemas, warehouses, roles, and users (e.g. `SECURITYADMIN`)
+- A Snowflake account, and a role that can create **databases, schemas, warehouses, roles, users and grants**. `SECURITYADMIN` alone is *not* enough — it cannot create databases or warehouses:
+
+  ```
+  SQL access control error: Insufficient privileges to operate on account.
+  Your primary role SECURITYADMIN must have CREATE DATABASE granted on ACCOUNT.
+  ```
+
+  Use `ACCOUNTADMIN`, or grant a purpose-built role what it needs (Snowcap's [permissions guide](https://snowcap.datacoves.com/snowflake-permissions/) walks through a least-privilege `SNOWCAP_ADMIN` role):
+
+  ```sql
+  GRANT CREATE DATABASE  ON ACCOUNT TO ROLE <your_role>;
+  GRANT CREATE WAREHOUSE ON ACCOUNT TO ROLE <your_role>;
+  GRANT CREATE ROLE      ON ACCOUNT TO ROLE <your_role>;
+  GRANT CREATE USER      ON ACCOUNT TO ROLE <your_role>;
+  GRANT MANAGE GRANTS    ON ACCOUNT TO ROLE <your_role>;
+  ```
 - `uv`/`uvx` installed (Snowcap is run via `uvx`, no separate install required)
-- A key-pair authentication key configured for your Snowflake user
+- Key-pair authentication configured for your Snowflake user, with the public key registered on the **target** account (`ALTER USER <you> SET RSA_PUBLIC_KEY='...'`) — a key that works on one account is not automatically valid on another
 
 ### Setup Instructions
 
