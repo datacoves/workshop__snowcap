@@ -9,8 +9,11 @@ object-management feature — instead of Snowcap. The **same** database, schemas
 warehouse, role hierarchy and grants are defined; only the tool that declares
 and applies them changes.
 
-> 📚 The `main` branch contains the original Snowcap implementation. Compare the
-> two to see how the same infrastructure-as-code is expressed in each tool.
+> 📚 This workshop exists in **three** implementations, one per branch:
+> [`main`](../../tree/main) (Snowcap), **`snowflake_dcm`** (this one), and
+> [`terraform`](../../tree/terraform). All three declare the same objects and
+> read the same `.env`, so you can switch branches and re-run. See
+> [How this compares to the other branches](#how-this-compares-to-the-other-branches).
 
 ## Overview
 
@@ -34,7 +37,7 @@ matter.
 - **`schemas.sql`** — the `analytics.staging` and `analytics.marts` schemas plus the fine-grained `z_schemas__usage__*` and `z_tables_views__select__analytics` roles/grants (including `ALL` + `FUTURE` grants)
 - **`warehouses.sql`** — the `wh_transforming` warehouse, its matching `z_wh__wh_transforming` role, and USAGE/MONITOR grants
 - **`roles.sql`** — the functional roles (`analyst`, `reporter`) and the role hierarchy that composes the `z_*` roles into each one
-- **`users.sql`** — grants `analyst`/`reporter` to the human user `gomezn`
+- **`users.sql`** — grants `analyst`/`reporter`/`accountadmin` to the human user `gomezn`
 
 ### 📁 Root Files
 - **`manifest.yml`** — the DCM project manifest (`manifest_version`, `type: DCM_PROJECT`, and a `targets` block — see [Manifest targets](#manifest-targets))
@@ -228,6 +231,52 @@ does not exist or not authorized
 included as comments you can enable if your deploying role is allowed to grant
 them. Note that `ORGADMIN` does not exist in most accounts (only in an
 organization's primary account), so leaving it enabled will fail.
+
+<a name="how-this-compares-to-the-other-branches"></a>
+## How this compares to the other branches
+
+All three branches declare the same objects and all three plan cleanly. What
+differs is how each tool decides **what already exists** and **who owns it** —
+verified by running all three against the same account.
+
+| | Snowcap ([`main`](../../tree/main)) | DCM (this branch) | Terraform ([`terraform`](../../tree/terraform)) |
+|---|---|---|---|
+| **Detects existing objects** | Reads live Snowflake | Reads live Snowflake | ❌ **State file only** |
+| **Manages `USER` objects** | ✅ creates them | ❌ **not supported** | ✅ creates them |
+| **Object ownership** | Assigns defaults (`SYSADMIN` / `USERADMIN`) | Whoever deployed | Whoever applied |
+| **Drop-on-remove** | Opt-in via `--sync_resources`; DB/schema excluded | **All** managed types, incl. DB/schema | Anything removed from `.tf` |
+| **Role switching mid-run** | Single role | Single role; `USE ROLE` rejected | Single role (aliases possible, unused) |
+| **Can enable `ORGADMIN`** | ❌ | ❌ | ⚠️ only via `snowflake_account` |
+
+### What this branch does best
+
+DCM and Snowcap both read live Snowflake state, so both correctly report
+near-zero drift against an account that already has the objects. Terraform, whose
+state file starts empty, plans to create all 34 resources again — it needs a
+clean account or `terraform import`.
+
+### Where this branch is most constrained
+
+**It cannot manage `USER` objects.** `gomezn` must already exist; DCM manages
+only the role grants. Snowcap and Terraform both create users. This is the one
+part of the workshop that does not translate 1:1 — see
+[Difference from Snowcap](#difference-from-snowcap-users).
+
+**Its objects end up owned by the deploying role.** DCM has no ownership model in
+definition files, so everything belongs to whoever ran `deploy` (here
+`SECURITYADMIN`). Snowcap assigns implicit default owners, so if you deploy this
+branch and then run Snowcap against the same account, Snowcap plans **14
+ownership transfers** to move everything to `SYSADMIN`/`USERADMIN`:
+
+```
+» Plan: 3 to create, 1 to update, 14 to transfer, 0 to drop.
+~ TRANSFER: ANALYTICS       owner: SECURITYADMIN → SYSADMIN
+~ TRANSFER: WH_TRANSFORMING owner: SECURITYADMIN → SYSADMIN
+```
+
+Pick one tool per account. Two of them will fight over ownership on every run,
+and as noted above, handing DCM's objects to another role breaks DCM's own next
+run.
 
 ## Workshop Takeaways
 
