@@ -28,18 +28,16 @@ resource "snowflake_grant_account_role" "user_reporter" {
   user_name = snowflake_user.this[each.value].name
 }
 
-# The Snowcap version also granted ACCOUNTADMIN and ORGADMIN to these users.
-# Uncomment to match it exactly -- note the applying role must be allowed to
-# grant them (ORGADMIN in particular can only be granted by ORGADMIN).
-#
-# resource "snowflake_grant_account_role" "user_accountadmin" {
-#   for_each  = toset(var.users)
-#   role_name = "ACCOUNTADMIN"
-#   user_name = snowflake_user.this[each.value].name
-# }
-#
-# resource "snowflake_grant_account_role" "user_orgadmin" {
-#   for_each  = toset(var.users)
-#   role_name = "ORGADMIN"
-#   user_name = snowflake_user.this[each.value].name
-# }
+# Matches the ACCOUNTADMIN grant in resources/users.yml. The applying role must
+# itself be allowed to grant it.
+resource "snowflake_grant_account_role" "user_accountadmin" {
+  for_each = toset(var.users)
+
+  role_name = "ACCOUNTADMIN"
+  user_name = snowflake_user.this[each.value].name
+}
+
+# ORGADMIN is deliberately absent. It exists only in an organization's primary
+# account, and no tool in this workshop can enable it there -- see the README.
+# Terraform is the only one that could, via snowflake_account.is_org_admin, but
+# that resource manages accounts rather than grants.

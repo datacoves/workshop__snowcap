@@ -47,5 +47,5 @@ variable "warehouses" {
 # analyst + reporter are granted to each (see users.tf).
 variable "users" {
   type    = list(string)
-  default = ["fmercado", "gomezn"]
+  default = ["gomezn"]
 }
