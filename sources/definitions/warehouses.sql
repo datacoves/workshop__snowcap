@@ -7,9 +7,13 @@
 --
 -- Snowcap generated the warehouse, role and grant from a `for_each` over a
 -- `warehouses` variable. DCM Projects support the same pattern with Jinja
--- (`{% for %}` + templating configs); here we keep the single warehouse inline
+-- for-loops plus templating configs; here we keep the single warehouse inline
 -- for clarity. To add another warehouse, copy the block below or wrap it in a
 -- Jinja loop over a templating variable.
+--
+-- NOTE: DCM renders each .sql file as a Jinja template before parsing the SQL,
+-- so Jinja delimiters are still evaluated inside `--` comments. Describe them
+-- in prose rather than writing them literally, or the file fails to compile.
 
 DEFINE WAREHOUSE wh_transforming
     WAREHOUSE_SIZE = 'XSMALL'
