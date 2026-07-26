@@ -14,16 +14,8 @@ users:
 
 role_grants:
 
-  - to_user: fmercado
-    roles:
-      - ACCOUNTADMIN
-      - ORGADMIN
-      - ANALYST
-      - REPORTER
-
   - to_user: gomezn
     roles:
       - ACCOUNTADMIN
-      - ORGADMIN
       - ANALYST
       - REPORTER
